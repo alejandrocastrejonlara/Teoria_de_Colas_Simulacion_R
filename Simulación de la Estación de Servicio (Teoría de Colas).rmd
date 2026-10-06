@@ -1,0 +1,485 @@
+
+Cargamos librerías
+```{r, message=FALSE, warning=TRUE}
+library(readxl)
+library(ggplot2)
+library(fitdistrplus)
+library(goftest)
+library(actuar)
+library(patchwork)
+```
+
+Consigna 1: Estimación de Parámetros y Pruebas de Bondad de Ajuste
+Paso 1: Importamos la base de datos
+```{r}
+df_bomba<- read_excel("archivo_bomba.xlsx")
+head(df_bomba)
+```
+Paso 2:	Estimar el parámetro β
+```{r}
+beta_hat_interarribo <- mean(df_bomba$`Tiempo Interarribo (Seg)`)
+beta_hat_servicio <- mean(df_bomba$`Tiempo Servicio (Seg)`)
+
+#Aplicamos Reglas de bins
+k_sturges_interarribo <- nclass.Sturges(df_bomba$`Tiempo Interarribo (Seg)`)
+k_scott_interarribo <- nclass.scott(df_bomba$`Tiempo Interarribo (Seg)`)
+k_freedman_interarribo <- nclass.FD(df_bomba$`Tiempo Interarribo (Seg)`)
+
+g1<- ggplot(data = df_bomba, aes(x=`Tiempo Interarribo (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_sturges_interarribo,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_interarribo), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos Interarribo Sturges", x = "Tiempos", y = "Densidad")+
+  theme_minimal()
+
+g2<- ggplot(data = df_bomba, aes(x=`Tiempo Interarribo (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_scott_interarribo,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_interarribo), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos Interarribo scott", x = "Tiempos", y = "Densidad")+
+  theme_minimal()
+
+g3<- ggplot(data = df_bomba, aes(x=`Tiempo Interarribo (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_freedman_interarribo,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_interarribo), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos Interarribo freedman", x = "Tiempos", y = "Densidad")+
+theme_minimal()
+
+#g3 es decir freedman es la que mejor representa los datos en cuestion de bins
+g3
+
+k_sturges_servicio <- nclass.Sturges(df_bomba$`Tiempo Servicio (Seg)`)
+k_scott_servicio <- nclass.scott(df_bomba$`Tiempo Servicio (Seg)`)
+k_freedman_servicio <- nclass.FD(df_bomba$`Tiempo Servicio (Seg)`)
+
+g4<- ggplot(data = df_bomba, aes(x=`Tiempo Servicio (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_sturges_servicio,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_servicio), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos de Servicio Sturges", x = "Tiempos", y = "Densidad")+
+  theme_minimal()
+
+g5<- ggplot(data = df_bomba, aes(x=`Tiempo Servicio (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_scott_servicio,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_servicio), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos de Servicio scott", x = "Tiempos", y = "Densidad")+
+  theme_minimal()
+
+g6<- ggplot(data = df_bomba, aes(x=`Tiempo Servicio (Seg)`)) +
+  geom_histogram(fill = "pink", color = "black", bins = k_freedman_servicio,
+                aes(y = after_stat(density)))+
+  geom_density( color = "skyblue", linewidth = 1.2)+
+  stat_function(fun = dexp, args = list(rate = 1/beta_hat_servicio), 
+  color = "purple2", linewidth = 1.2)+
+  labs(title = "Distribución Tiempos de Servicio freedman", x = "Tiempos", y = "Densidad")+
+theme_minimal()
+
+#g4 elegida
+g4
+
+```
+Paso 3:	Realizar pruebas de bondad de ajuste
+```{r}
+#Para tiempos de interarribo
+#Realizamos una lista de distribuciones a probar
+distribuciones_a_probar<-c("norm", "lnorm", "weibull", "gamma", "exp", "logis", "cauchy")
+
+# Crear una lista vacia para almacenar los resultados del ajuste
+resultados_ajuste <-list()
+
+# Generamos un bulce para ajustar y guardar lo de cada distribucion
+for (dist in distribuciones_a_probar){
+  ajuste<- fitdist(df_bomba$`Tiempo Interarribo (Seg)`,dist, method = "mle")
+  resultados_ajuste[[dist]]<-ajuste
+}
+
+gofstat(resultados_ajuste, fitnames = distribuciones_a_probar)
+
+```
+```{r}
+#Para tiempos de servicio
+#Realizamos una lista de distribuciones a probar
+distribuciones_a_probar<-c("norm", "lnorm", "weibull", "gamma", "exp", "logis", "cauchy")
+
+# Crear una lista vacia para almacenar los resultados del ajuste
+resultados_ajuste <-list()
+
+# Generamos un bulce para ajustar y guardar lo de cada distribucion
+for (dist in distribuciones_a_probar){
+  ajuste<- fitdist(df_bomba$`Tiempo Servicio (Seg)`,dist, method = "mle")
+  resultados_ajuste[[dist]]<-ajuste
+}
+
+gofstat(resultados_ajuste, fitnames = distribuciones_a_probar)
+```
+Estimamos los parámetros de cada distribucion.
+```{r, message=FALSE, warning=FALSE}
+#Para tiempos de interarribo
+cat("Estimadores Tiempos de Interarribo: ","\n")
+ajuste_exponencial_interarribo <- fitdist(data = df_bomba$`Tiempo Interarribo (Seg)`, distr = "exp", method = "mle")
+cat("\n","Exponencial","\n")
+ajuste_exponencial_interarribo$estimate
+
+ajuste_weibull_interarribo <- fitdist(data = df_bomba$`Tiempo Interarribo (Seg)`, distr = "weibull", method = "mle")
+cat("\n","Weibull","\n")
+ajuste_weibull_interarribo$estimate
+
+ajuste_gamma_interarribo <- fitdist(df_bomba$`Tiempo Interarribo (Seg)`, "gamma", method = "mle")
+cat("\n","Gamma","\n")
+ajuste_gamma_interarribo$estimate
+
+
+#Para tiempos de servicio
+cat("\n","Tiempos de servicio: ","\n")
+ajuste_exponencial_servicio <- fitdist(data = df_bomba$`Tiempo Servicio (Seg)`, distr = "exp", method = "mle")
+cat("\n","Exponencial","\n")
+ajuste_exponencial_servicio$estimate #Esto nos va a arrojar los parametros estimados
+
+ajuste_weibull_servicio <- fitdist(data = df_bomba$`Tiempo Servicio (Seg)`, distr = "weibull", method = "mle")
+cat("\n","Weibull","\n")
+ajuste_weibull_servicio$estimate
+
+ajuste_gamma_servicio <- fitdist(df_bomba$`Tiempo Servicio (Seg)`, "gamma", method = "mle")
+cat("\n","Gamma","\n")
+ajuste_gamma_servicio$estimate
+```
+Realizamos prueba Kolmogorov-Smirnov 
+```{r}
+#Para tiempos de Interarribo
+cat("Prueba Kolmogorov-Smirnov para Tiempos de Interarribo","\n")
+
+ks_exponencial_interarribo<-ks.test(df_bomba$`Tiempo Interarribo (Seg)`,"pexp",ajuste_exponencial_interarribo$estimate)
+ cat("Distribucion Exponencial", "\n")
+if(ks_exponencial_interarribo$p.value>0.05){
+  cat("Como p_value =",ks_exponencial_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ks_exponencial_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ks_weibull_interarribo<-ks.test(df_bomba$`Tiempo Interarribo (Seg)`,"pweibull",ajuste_weibull_interarribo$estimate["shape"],ajuste_weibull_interarribo$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(ks_weibull_interarribo$p.value>0.05){
+  cat("Como p_value =",ks_weibull_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ks_weibull_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ks_gamma_interarribo<-ks.test(df_bomba$`Tiempo Interarribo (Seg)`,"pgamma",ajuste_gamma_interarribo$estimate["shape"],ajuste_gamma_interarribo$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(ks_gamma_interarribo$p.value>0.05){
+  cat("Como p_value =",ks_gamma_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ks_gamma_interarribo$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+#Para tiempos de Servicio
+cat("\n","Prueba Kolmogorov-Smirnov para Tiempos de Servicio","\n")
+
+ks_exponencial_servicio<-ks.test(df_bomba$`Tiempo Servicio (Seg)`,"pexp",ajuste_exponencial_servicio$estimate)
+cat("Distribucion Exponencial", "\n")
+if(ks_exponencial_servicio$p.value>0.05){
+  cat("Como p_value =",ks_exponencial_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ks_exponencial_servicio$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+
+ks_weibull_servicio<-ks.test(df_bomba$`Tiempo Servicio (Seg)`,"pweibull",ajuste_weibull_servicio$estimate["shape"],ajuste_weibull_servicio$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(ks_weibull_servicio$p.value>0.05){
+  cat("Como p_value =",ks_weibull_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value  =",ks_weibull_servicio$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ks_gamma_servicio<-ks.test(df_bomba$`Tiempo Servicio (Seg)`,"pgamma",ajuste_gamma_servicio$estimate["shape"],ajuste_gamma_servicio$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(ks_gamma_servicio$p.value>0.05){
+  cat("Como p_value =",ks_gamma_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ks_gamma_servicio$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+```
+Aplicamos la prueba de Anderson Darling:
+
+```{r}
+#Para tiempos de Interarribo
+cat("Prueba de Anderson Darling para Tiempos de Interarribo","\n")
+
+ad_exponencial_interarribo<- ad.test(df_bomba$`Tiempo Interarribo (Seg)`, "pexp",ajuste_exponencial_interarribo$estimate)
+  cat("Distribucion Exponencial", "\n")
+if(ad_exponencial_interarribo$p.value>0.05){
+  cat("Como p_value =",ad_exponencial_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_exponencial_interarribo$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ad_weibull_interarribo<- ad.test(df_bomba$`Tiempo Interarribo (Seg)`, "pweibull", ajuste_weibull_interarribo$estimate["shape"],ajuste_weibull_interarribo$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(ad_weibull_interarribo$p.value>0.05){
+  cat("Como p_value =",ad_weibull_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_weibull_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ad_gamma_interarribo<- ad.test(df_bomba$`Tiempo Interarribo (Seg)`, "pgamma", ajuste_gamma_interarribo$estimate["shape"],ajuste_gamma_interarribo$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(ad_gamma_interarribo$p.value>0.05){
+  cat("Como p_value =",ad_gamma_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_gamma_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+#Para tiempos de servicio
+cat("\n","Prueba de Anderson Darling para Tiempos de Servicio","\n")
+
+ad_exponencial_servicio<- ad.test(df_bomba$`Tiempo Servicio (Seg)`, "pexp",ajuste_exponencial_servicio$estimate)
+  cat("Distribucion Exponencial", "\n")
+if(ad_exponencial_servicio$p.value>0.05){
+  cat("Como p_value =",ad_exponencial_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_exponencial_servicio$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ad_weibull_servicio<- ad.test(df_bomba$`Tiempo Servicio (Seg)`, "pweibull", ajuste_weibull_servicio$estimate["shape"],ajuste_weibull_servicio$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(ad_weibull_servicio$p.value>0.05){
+  cat("Como p_value =",ad_weibull_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_weibull_servicio$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+ad_gamma_servicio<- ad.test(df_bomba$`Tiempo Servicio (Seg)`, "pgamma", ajuste_gamma_servicio$estimate["shape"],ajuste_gamma_servicio$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(ad_gamma_servicio$p.value>0.05){
+  cat("Como p_value =",ad_gamma_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",ad_gamma_servicio$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+```
+
+Aplicamos la prueba de Cramer-von Mises:
+
+```{r}
+#Para tiempos de Interarribo
+cat("Prueba de Cramer-von Mises para Tiempos de Interarribo","\n")
+
+cvm_exponencial_interarribo<- cvm.test(df_bomba$`Tiempo Interarribo (Seg)`, "pexp",ajuste_exponencial_interarribo$estimate)
+  cat("Distribucion Exponencial", "\n")
+if(cvm_exponencial_interarribo$p.value>0.05){
+  cat("Como p_value =",cvm_exponencial_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_exponencial_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+cvm_weibull_interarribo<- cvm.test(df_bomba$`Tiempo Interarribo (Seg)`, "pweibull", ajuste_weibull_interarribo$estimate["shape"],ajuste_weibull_interarribo$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(cvm_weibull_interarribo$p.value>0.05){
+  cat("Como p_value =",cvm_weibull_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_weibull_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+cvm_gamma_interarribo<- cvm.test(df_bomba$`Tiempo Interarribo (Seg)`, "pgamma", ajuste_gamma_interarribo$estimate["shape"],ajuste_gamma_interarribo$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(cvm_gamma_interarribo$p.value>0.05){
+  cat("Como p_value =",cvm_gamma_interarribo$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_gamma_interarribo$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+#Para tiempos de servicio
+cat("\n","Prueba de Cramer-von Mises para Tiempos de Servicio","\n")
+
+cvm_exponencial_servicio<- cvm.test(df_bomba$`Tiempo Servicio (Seg)`, "pexp",ajuste_exponencial_servicio$estimate)
+  cat("Distribucion Exponencial", "\n")
+if(cvm_exponencial_servicio$p.value>0.05){
+  cat("Como p_value =",cvm_exponencial_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_exponencial_servicio$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+cvm_weibull_servicio<- cvm.test(df_bomba$`Tiempo Servicio (Seg)`, "pweibull", ajuste_weibull_servicio$estimate["shape"],ajuste_weibull_servicio$estimate["scale"])
+cat("Distribucion Weibull", "\n")
+if(cvm_weibull_servicio$p.value>0.05){
+  cat("Como p_value =",cvm_weibull_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_weibull_servicio$p.value, "es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+
+cvm_gamma_servicio<- cvm.test(df_bomba$`Tiempo Servicio (Seg)`, "pgamma", ajuste_gamma_servicio$estimate["shape"],ajuste_gamma_servicio$estimate["rate"])
+cat("Distribucion Gamma", "\n")
+if(cvm_gamma_servicio$p.value>0.05){
+  cat("Como p_value =",cvm_gamma_servicio$p.value, "es mayor que 0.05, no se rechaza la hipotesis nula","\n")
+} else{
+  cat("Como  p_value =",cvm_gamma_servicio$p.value, " es menor que 0.05, se rechaza la hipotesis nula en favor de la alternativa","\n")
+}
+```
+```{r}
+cat("Elegimos la Distribucion Exponencial para los Tiempos de Interarribo","\n","y la Distribucion Weibull para los Tiempos de Servicio","\n","Ya que segun las pruebas de bondad son las mas adecuadas en cada caso")
+```
+
+Consigna 2: Simulación de la Estación de Servicio
+```{r}
+set.seed(123)
+
+# Parámetros (los tuyos)
+rate_interarribo <- ajuste_exponencial_interarribo$estimate["rate"]
+shape_servicio   <- ajuste_weibull_servicio$estimate["shape"]
+scale_servicio   <- ajuste_weibull_servicio$estimate["scale"]
+
+tiempo_total <- 12 * 60 * 60   # 12 horas (7:00 a 19:00) en segundos
+n_sim <- 10000                 # número de simulaciones
+max_llegadas <- 300            # para generar suficientes interarribos
+
+# Vectores para resultados (por simulación)
+autos_llegan <- numeric(n_sim)     # cuántos llegan antes de 19:00
+autos_atendidos <- numeric(n_sim)  # cuántos alcanzan a iniciar servicio antes de 19:00
+tiempo_espera_prom <- numeric(n_sim)
+utilizacion <- numeric(n_sim)
+
+for(sim in 1:n_sim){
+
+  # =========================
+  # 1) LLEGADAS (primer auto a t=0)
+  # =========================
+  tiempos_interarribo <- rexp(max_llegadas, rate = rate_interarribo)
+
+  # t=0 es el primer auto (7:00:00)
+  tiempo_llegadas <- c(0, cumsum(tiempos_interarribo))
+
+  # solo llegadas dentro del horario [0, 12h]
+  tiempo_llegadas <- tiempo_llegadas[tiempo_llegadas <= tiempo_total]
+  n_llegan <- length(tiempo_llegadas)
+  autos_llegan[sim] <- n_llegan
+
+  if(n_llegan == 0){
+    autos_atendidos[sim] <- 0
+    tiempo_espera_prom[sim] <- NA
+    utilizacion[sim] <- 0
+    next
+  }
+
+  # =========================
+  # 2) SERVICIOS (Weibull)
+  # =========================
+  tiempos_servicio <- rweibull(n_llegan, shape = shape_servicio, scale = scale_servicio)
+
+  inicio_servicio <- numeric(n_llegan)
+  fin_servicio    <- numeric(n_llegan)
+
+  # primer auto: si llega a t=0, puede iniciar a t=0
+  inicio_servicio[1] <- tiempo_llegadas[1]
+  fin_servicio[1] <- inicio_servicio[1] + tiempos_servicio[1]
+
+  if(n_llegan > 1){
+    for(i in 2:n_llegan){
+      inicio_servicio[i] <- max(tiempo_llegadas[i], fin_servicio[i-1])
+      fin_servicio[i] <- inicio_servicio[i] + tiempos_servicio[i]
+    }
+  }
+
+  # =========================
+  # 3) CIERRE DURO A LAS 19:00
+  #    - NO se inicia servicio si inicio_servicio >= tiempo_total
+  #    - Si ya inició antes, puede quedar "cortado" a 19:00
+  # =========================
+  idx_atendidos <- which(inicio_servicio < tiempo_total)
+
+  n_atendidos <- length(idx_atendidos)
+  autos_atendidos[sim] <- n_atendidos
+
+  if(n_atendidos == 0){
+    tiempo_espera_prom[sim] <- NA
+    utilizacion[sim] <- 0
+    next
+  }
+
+  # recortamos a los atendidos
+  lleg <- tiempo_llegadas[idx_atendidos]
+  ini  <- inicio_servicio[idx_atendidos]
+  fin  <- fin_servicio[idx_atendidos]
+  serv <- tiempos_servicio[idx_atendidos]
+
+  # recorte del fin al cierre (para medir ocupación real antes de 19:00)
+  fin_cortado <- pmin(fin, tiempo_total)
+
+  # =========================
+  # 4) MÉTRICAS
+  # =========================
+  # A) Tiempo promedio de espera EN COLA entre autos atendidos (incluye ceros)
+  wq <- ini - lleg
+  tiempo_espera_prom[sim] <- mean(wq)
+
+  # Utilización: tiempo ocupado antes del cierre / tiempo_total
+  # (suma de los intervalos [ini, fin_cortado])
+  ocupado <- sum(fin_cortado - ini)
+  utilizacion[sim] <- ocupado / tiempo_total
+}
+
+# Resultados promedios (ignorando NAs por simulaciones sin atendidos)
+cat("Autos promedio que LLEGAN (antes de 19:00):", mean(autos_llegan), "\n")
+cat("Autos promedio ATENDIDOS (inician antes de 19:00):", mean(autos_atendidos), "\n")
+cat("Tiempo promedio en cola (A) [seg]:", mean(tiempo_espera_prom, na.rm = TRUE), "\n")
+cat("Utilización promedio de la bomba (%):", mean(utilizacion) * 100, "\n")
+```
+
+```{r}
+# Función que convierte segundos desde las 7:00 a.m. a HH:MM:SS
+seg_a_hms <- function(segundos) {
+  segundos <- pmax(0, segundos)              # seguridad
+  h <- floor(segundos / 3600) + 7
+  m <- floor((segundos %% 3600) / 60)
+  s <- floor(segundos %% 60)                 # <- no round()
+  sprintf("%02d:%02d:%02d", h, m, s)
+}
+
+# --- CIERRE DURO: quedarnos SOLO con los atendidos (inicio < 19:00) ---
+idx_atendidos <- which(inicio_servicio < tiempo_total)
+
+# Si nadie alcanzó a iniciar, evitamos error
+if(length(idx_atendidos) == 0){
+  tabla_autos <- data.frame()
+  cat("Ningún auto alcanzó a iniciar servicio antes del cierre.\n")
+} else {
+
+  # Subconjuntos alineados (MISMA longitud)
+  lleg <- tiempo_llegadas[idx_atendidos]
+  ini  <- inicio_servicio[idx_atendidos]
+  fin  <- fin_servicio[idx_atendidos]
+  serv <- tiempos_servicio[idx_atendidos]
+
+  # Para mostrar, opcionalmente puedes "cortar" el fin al cierre:
+  fin_cortado <- pmin(fin, tiempo_total)
+
+  # Espera en cola (A): incluye ceros, pero SOLO sobre atendidos
+  tiempo_espera <- ini - lleg
+
+  # Tabla final (mismas filas en todas las columnas)
+  tabla_autos <- data.frame(
+    Cliente = 1:length(idx_atendidos),
+    Llegada = seg_a_hms(lleg),
+    Tiempo_espera_en_cola = round(tiempo_espera, 2),
+    Inicio_Servicio = seg_a_hms(ini),
+    Tiempo_Servicio = round(serv, 2),
+    Fin_Servicio = seg_a_hms(fin_cortado)   # <- usa fin_cortado si quieres respetar cierre
+  )
+
+  cat("\n--- HEAD (primeros 10) ---\n")
+print(head(tabla_autos, 10))
+cat("\n--- TAIL (últimos 10) ---\n")
+print(tail(tabla_autos, 10))
+}
+```
